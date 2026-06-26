@@ -24,7 +24,7 @@ team_members:
 # Code and reproducibility
 # ============================================================================
 github_repo: "https://github.com/sunny-kumar-07/over-clock-hackathon"
-sandbox_link: "https://overclock-india-runs-hackathon-p6blnhxvuyajbyi4w7nqfq.streamlit.app/"
+sandbox_link: "https://over-clock-hackathon-biqdfrsmxerqsesy47mvmr.streamlit.app/"
 
 reproduce_command: "python rank.py --candidates ./candidates.jsonl --out ./output/team_xxx.csv"
 # Verified: runs end-to-end in ~165 seconds on a CPU-only environment, 100K candidates,
