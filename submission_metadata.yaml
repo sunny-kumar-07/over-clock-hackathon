@@ -1,0 +1,88 @@
+# Redrob Hackathon — Submission Metadata
+# ============================================================================
+# Team identity
+# ============================================================================
+team_name: "Redrob Rankers"
+
+primary_contact:
+  name: "Sunny Kumar"
+  email: "kumarsunny727557@gmail.com"
+  phone: "+91-9942352084"         
+
+team_members:
+  - name: "Sunny Kumar"
+    email: "kumarsunny727557@gmail.com"
+    role: "Team Lead"
+  - name: "Krish Yadav"
+    email: "krishy742@gmail.com"
+    role: "Member"
+  - name: "Harsh Mishra"
+    email: "harshmishra4dec@gmail.com"
+    role: "Member"
+
+# ============================================================================
+# Code and reproducibility
+# ============================================================================
+github_repo: "https://github.com/sunny-kumar-07/over-clock-hackathon"
+sandbox_link: "https://overclock-india-runs-hackathon-p6blnhxvuyajbyi4w7nqfq.streamlit.app/"
+
+reproduce_command: "python rank.py --candidates ./candidates.jsonl --out ./output/team_xxx.csv"
+# Verified: runs end-to-end in ~165 seconds on a CPU-only environment, 100K candidates,
+# no network access, no GPU. Output passes validate_submission.py.
+
+# ============================================================================
+# Compute environment
+# ============================================================================
+compute:
+  platform: "AMD Ryzen 5 7530U with Radeon Graphics laptop"
+  cpu_cores: 12                                                 
+  ram_gb: 16                                                    
+  python_version: "3.10.10"
+  os: "Windows 10 [Version 10.0.26200.8655]"
+  uses_gpu_for_inference: false
+  has_network_during_ranking: false
+  pre_computation_required: false
+  pre_computation_time_minutes: 0
+
+# ============================================================================
+# AI tools declaration
+# ============================================================================
+ai_tools_used:
+  - "Claude"
+
+ai_usage_summary: |
+  Claude (Anthropic) was used to write the majority of the pipeline code
+  (config.py, scoring.py, rank.py, app.py) and to help design the scoring
+  logic, including rules grounded in patterns found while inspecting the
+  real dataset (e.g. honeypot detection). The team reviewed, tested, and
+  tuned the resulting code and weights. No candidate data was sent to any
+  external LLM API at ranking time.
+
+# ============================================================================
+# Approach summary
+# ============================================================================
+methodology_summary: |
+  Hybrid rule + local-semantic ranking engine, fully CPU/offline. The JD is
+  encoded once into config.py (must-have skill families matched at the
+  concept level, explicit hard disqualifiers from the JD's stated dealbreakers,
+  weights). scoring.py computes, per candidate: (1) a honeypot/consistency
+  check (expert skill claimed with near-zero duration, career-history months
+  exceeding stated years of experience, proficiency vs tested assessment gap);
+  (2) hard disqualifier penalties (consulting-only career, pure-research-only,
+  no recent hands-on code, CV/speech-only without NLP/IR, title-chasing,
+  closed-source-only validated via github_activity_score); (3) must-have
+  skill coverage blended with tested skill_assessment_scores; (4) batched
+  TF-IDF+SVD cosine similarity vs a JD-derived ideal-candidate reference;
+  (5) a 6-signal behavioral multiplier (response rate, recency, open-to-work,
+  interview completion, offer acceptance, social proof). Runtime ~165 seconds
+  for 100K candidates, CPU-only, 0/100 honeypots in final top-100.
+
+# ============================================================================
+# Declarations
+# ============================================================================
+declarations:
+  read_submission_spec: true
+  code_is_original_work: true
+  no_collusion: true
+  honeypot_check_done: true
+  reproduction_tested: true
