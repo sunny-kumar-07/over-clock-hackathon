@@ -30,9 +30,9 @@ python rank.py --candidates ./candidates.jsonl --out ./output/team_OverClock.xls
 python validate_submission.py output/team_OverClock.xlsx
 ```
 
-**To explore the ranker interactively (small-sample sandbox demo):**
+**To explore the ranker interactively (sandbox demo):**
 ```bash
-streamlit run app.py
+https://team-over-clock-hackathon.streamlit.app/
 ```
 
 ---
