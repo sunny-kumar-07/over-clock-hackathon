@@ -28,7 +28,8 @@ python validate_submission.py output/team_xxx.csv
 To explore the ranker interactively (small-sample sandbox demo):
 
 ```bash
-https://over-clock-hackathon-biqdfrsmxerqsesy47mvmr.streamlit.app/```
+https://over-clock-hackathon-biqdfrsmxerqsesy47mvmr.streamlit.app/
+```
 
 ---
 
