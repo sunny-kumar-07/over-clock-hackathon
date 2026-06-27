@@ -3,3 +3,5 @@ numpy>=1.26,<3.0
 scikit-learn>=1.5,<2.0
 PyYAML>=6.0,<7.0
 streamlit>=1.36,<2.0
+orjson>=3.9.0
+openpyxl>=3.1.0
