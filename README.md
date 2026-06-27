@@ -1,6 +1,6 @@
 <div align="center">
   
-# 🏆 Candidate Ranker
+#  Candidate Ranker
 
 *An AI-recruiter ranking engine for the **Senior AI Engineer — Founding Team** role.*
 *Built for the **India Runs Data & AI Challenge**.*
