@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-Validate submission CSV per challenge rules (sections 2–3).
-Row 1 = header. Rows 2–101 = exactly 100 data rows. CSV only.
+Validate submission XLSX per challenge rules (sections 2–3).
+Row 1 = header. Rows 2–101 = exactly 100 data rows. XLSX only.
 """
 
-import csv
 import re
 import sys
 from pathlib import Path
@@ -19,40 +18,43 @@ def validate_submission(csv_path):
     errors = []
     path = Path(csv_path)
 
-    if path.suffix.lower() != ".csv":
-        errors.append("Filename must use a .csv extension.")
+    if path.suffix.lower() != ".xlsx":
+        errors.append("Filename must use a .xlsx extension.")
     elif not path.stem:
-        errors.append("Filename must be your registered participant ID (e.g. team_xxx.csv).")
+        errors.append("Filename must be your registered participant ID (e.g. team_xxx.xlsx).")
 
     try:
-        with open(path, "r", encoding="utf-8", newline="") as f:
-            reader = csv.reader(f)
+        from openpyxl import load_workbook
+        wb = load_workbook(path, read_only=True, data_only=True)
+        ws = wb.active
 
-            try:
-                header = next(reader)
-            except StopIteration:
-                errors.append("Row 1 must be the header row; file is empty.")
-                return errors
+        all_rows = list(ws.iter_rows(values_only=True))
+        wb.close()
 
-           
-            if header != REQUIRED_HEADER:
-                errors.append(
-                    "Row 1 (header) must be exactly:\n"
-                    f"  {','.join(REQUIRED_HEADER)}\n"
-                    f"Found:\n"
-                    f"  {','.join(header)}"
-                )
+        if not all_rows:
+            errors.append("Row 1 must be the header row; file is empty.")
+            return errors
 
-            data_rows = []
-            for row in reader:
-                if any(cell.strip() for cell in row):
-                    data_rows.append(row)
+        header = [str(c) if c is not None else "" for c in all_rows[0]]
+        if header != REQUIRED_HEADER:
+            errors.append(
+                "Row 1 (header) must be exactly:\n"
+                f"  {','.join(REQUIRED_HEADER)}\n"
+                f"Found:\n"
+                f"  {','.join(header)}"
+            )
 
-    except UnicodeDecodeError:
-        errors.append("File must be UTF-8 encoded.")
-        return errors
+        data_rows = []
+        for row_tuple in all_rows[1:]:
+            cells = [str(c) if c is not None else "" for c in row_tuple]
+            if any(cell.strip() for cell in cells):
+                data_rows.append(cells)
+
     except OSError as e:
         errors.append(f"Cannot read file: {e}")
+        return errors
+    except Exception as e:
+        errors.append(f"Failed to parse XLSX: {e}")
         return errors
 
     n = len(data_rows)
@@ -148,7 +150,7 @@ def validate_submission(csv_path):
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: python validate_submission.py <participant_id>.csv")
+        print("Usage: python validate_submission.py <participant_id>.xlsx")
         sys.exit(1)
 
     errors = validate_submission(sys.argv[1])
