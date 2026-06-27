@@ -1,10 +1,7 @@
-
-
 from __future__ import annotations
-
 import numpy as np
 from datetime import datetime
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import HashingVectorizer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -20,21 +17,41 @@ def candidate_full_text(candidate: dict) -> str:
     keyword/marker scanning: headline, summary, career history descriptions
     and titles, skill names."""
     p = candidate["profile"]
-    parts = [p.get("headline", ""), p.get("summary", ""), p.get("current_title", "")]
+    parts = [
+        p.get("headline", ""),
+        p.get("summary", ""),
+        p.get("current_title", "")
+    ]
     for job in candidate.get("career_history", []):
         parts.append(job.get("title", ""))
         parts.append(job.get("description", ""))
     for s in candidate.get("skills", []):
         parts.append(s.get("name", ""))
+        
+    # Inject education & certs into the text block to avoid inner loops later
+    for edu in candidate.get("education", []):
+        if edu.get("tier") == "tier_1":
+            parts.append("tier_1_edu_flag")
+        parts.append(edu.get("field_of_study", ""))
+    for cert in candidate.get("certifications", []):
+        parts.append(cert.get("name", ""))
+        
     return " ".join(parts).lower()
 
 
 def _any_marker_present(text: str, markers: list[str]) -> bool:
-    return any(m.lower() in text for m in markers)
+    for m in markers:
+        if m in text:
+            return True
+    return False
 
 
 def _count_markers_present(text: str, markers: list[str]) -> int:
-    return sum(1 for m in markers if m.lower() in text)
+    count = 0
+    for m in markers:
+        if m in text:
+            count += 1
+    return count
 
 
 # ---------------------------------------------------------------------------
@@ -83,10 +100,9 @@ def check_honeypot(candidate: dict) -> tuple[bool, list[str]]:
 # 2. HARD DISQUALIFIER RULES
 # ---------------------------------------------------------------------------
 
-def check_disqualifiers(candidate: dict) -> tuple[float, list[str]]:
+def check_disqualifiers(candidate: dict, text: str) -> tuple[float, list[str]]:
     """Returns (combined_penalty_multiplier, reasons_fired). Multiple rules
     can fire; penalties multiply together (compounding penalty)."""
-    text = candidate_full_text(candidate)
     career = candidate.get("career_history", [])
     profile = candidate["profile"]
     reasons = []
@@ -166,7 +182,7 @@ def check_disqualifiers(candidate: dict) -> tuple[float, list[str]]:
 # 3. MUST-HAVE / NICE-TO-HAVE SKILL COVERAGE
 # ---------------------------------------------------------------------------
 
-def compute_must_have_coverage(candidate: dict) -> tuple[float, list[str]]:
+def compute_must_have_coverage(candidate: dict, text: str) -> tuple[float, list[str]]:
     """Weighted coverage across the 4 must-have skill families. Concept-level
     matching against full candidate text (skills + descriptions), not just
     the skills list, per JD: 'we don't care which model — operational
@@ -177,7 +193,6 @@ def compute_must_have_coverage(candidate: dict) -> tuple[float, list[str]]:
     -- rewards verified competence over a profile that merely mentions the
     right words (catches keyword-stuffers within a matched family, not just
     across families)."""
-    text = candidate_full_text(candidate)
     assessments = candidate.get("redrob_signals", {}).get("skill_assessment_scores", {}) or {}
     score = 0.0
     matched_families = []
@@ -187,7 +202,16 @@ def compute_must_have_coverage(candidate: dict) -> tuple[float, list[str]]:
             matched_families.append(family)
             # look for a tested assessment score on any skill name belonging
             # to this family (case-insensitive match against assessments keys)
-            tested_scores = [v for k, v in assessments.items() if k.lower() in [m.lower() for m in markers] or any(m.lower() in k.lower() for m in markers)]
+            tested_scores = []
+            for k, v in assessments.items():
+                k_lower = k.lower()
+                if k_lower in markers:
+                    tested_scores.append(v)
+                else:
+                    for m in markers:
+                        if m in k_lower:
+                            tested_scores.append(v)
+                            break
             if tested_scores:
                 competence = max(tested_scores) / 100.0  # best tested evidence for the family
                 blend = cfg.SKILL_ASSESSMENT_BLEND_WEIGHT
@@ -198,8 +222,7 @@ def compute_must_have_coverage(candidate: dict) -> tuple[float, list[str]]:
     return (score, matched_families)
 
 
-def compute_nice_to_have_bonus(candidate: dict) -> float:
-    text = candidate_full_text(candidate)
+def compute_nice_to_have_bonus(candidate: dict, text: str) -> float:
     hits = _count_markers_present(text, cfg.NICE_TO_HAVE_SKILLS)
     bonus = min(hits / max(len(cfg.NICE_TO_HAVE_SKILLS), 1), 1.0) * cfg.NICE_TO_HAVE_BONUS_CAP
     return bonus
@@ -283,6 +306,30 @@ def compute_notice_period_score(candidate: dict) -> float:
 
 
 # ---------------------------------------------------------------------------
+# 6.5. PROFILE QUALITY BONUS
+# ---------------------------------------------------------------------------
+
+def compute_profile_quality_bonus(candidate: dict, text: str) -> float:
+    bonus = 0.0
+    
+    # Startup experience
+    if candidate["profile"].get("current_company_size") in cfg.STARTUP_SIZES:
+        bonus += cfg.STARTUP_BONUS
+        
+    # Education & Certs (now pre-injected into cached text)
+    if "tier_1_edu_flag" in text:
+        bonus += cfg.TIER_1_BONUS
+        
+    if _any_marker_present(text, cfg.CS_ML_DEGREE_MARKERS):
+        bonus += cfg.DEGREE_RELEVANCE_BONUS
+            
+    if _any_marker_present(text, cfg.RELEVANT_CERT_MARKERS):
+        bonus += cfg.CERT_BONUS
+            
+    return bonus
+
+
+# ---------------------------------------------------------------------------
 # 7. BEHAVIORAL AVAILABILITY MULTIPLIER
 # ---------------------------------------------------------------------------
 
@@ -320,7 +367,8 @@ def compute_behavioral_multiplier(candidate: dict, as_of: datetime) -> float:
     # don't dominate; clamp to [0,1]
     search_appear = min(sig.get("search_appearance_30d", 0) or 0, cfg.SEARCH_APPEARANCE_CAP_30D) / cfg.SEARCH_APPEARANCE_CAP_30D
     saved_by = min(sig.get("saved_by_recruiters_30d", 0) or 0, cfg.SAVED_BY_RECRUITERS_CAP_30D) / cfg.SAVED_BY_RECRUITERS_CAP_30D
-    social_proof = (search_appear + saved_by) / 2.0
+    profile_views = min(sig.get("profile_views_received_30d", 0) or 0, 50) / 50.0  # normalize views
+    social_proof = (search_appear + saved_by + profile_views) / 3.0
 
     pc_raw = sig.get("profile_completeness_score", 50) or 50
     profile_completeness = min(pc_raw / cfg.PROFILE_COMPLETENESS_FULL_SCORE, 1.0)
@@ -336,7 +384,8 @@ def compute_behavioral_multiplier(candidate: dict, as_of: datetime) -> float:
 
     verified_email = bool(sig.get("verified_email", False))
     verified_phone = bool(sig.get("verified_phone", False))
-    verified_bonus = cfg.VERIFIED_CONTACT_BONUS if (verified_email and verified_phone) else 0.0
+    linkedin_connected = bool(sig.get("linkedin_connected", False))
+    verified_bonus = cfg.VERIFIED_CONTACT_BONUS if (verified_email and verified_phone and linkedin_connected) else 0.0
 
     apps_30d = sig.get("applications_submitted_30d", 0) or 0
     apps_bonus = cfg.APPLICATIONS_BONUS if cfg.APPLICATIONS_SWEET_SPOT_MIN <= apps_30d <= cfg.APPLICATIONS_SWEET_SPOT_MAX else 0.0
@@ -356,33 +405,31 @@ def compute_behavioral_multiplier(candidate: dict, as_of: datetime) -> float:
 
 
 # ---------------------------------------------------------------------------
-# 8. BATCH SEMANTIC SIMILARITY (TF-IDF + SVD, vectorized across all candidates)
+# 8. BATCH SEMANTIC SIMILARITY (HashingVectorizer)
 # ---------------------------------------------------------------------------
 
 def compute_semantic_scores(candidate_texts: list[str]) -> np.ndarray:
     """Returns an array of cosine similarity scores (0-1) between each
-    candidate's text and the ideal-candidate reference text, using TF-IDF +
-    truncated SVD (LSA). Fully local, deterministic, no network/GPU."""
+    candidate's text and the ideal-candidate reference text, using HashingVectorizer."""
     corpus = candidate_texts + [cfg.IDEAL_CANDIDATE_TEXT.lower()]
 
-    vectorizer = TfidfVectorizer(
-        max_features=20000,
-        ngram_range=(1, 2),
+    vectorizer = HashingVectorizer(
+        n_features=2048,
         stop_words="english",
-        min_df=2,
+        norm='l2',
+        dtype=np.float32,
     )
-    tfidf_matrix = vectorizer.fit_transform(corpus)
+    matrix = vectorizer.fit_transform(corpus)
+    
+    ideal_vec = matrix[-1]
+    candidate_vecs = matrix[:-1]
+    
+    # Dot product of L2 normalized vectors is cosine similarity
+    sims = candidate_vecs.dot(ideal_vec.T).toarray().flatten()
+    
+    # Clip to [0, 1] to keep it globally consistent across chunks
+    sims = np.clip(sims, 0.0, 1.0)
 
-    n_components = min(200, tfidf_matrix.shape[1] - 1, tfidf_matrix.shape[0] - 1)
-    svd = TruncatedSVD(n_components=n_components, random_state=42)
-    reduced = svd.fit_transform(tfidf_matrix)
-
-    ideal_vec = reduced[-1].reshape(1, -1)
-    candidate_vecs = reduced[:-1]
-
-    sims = cosine_similarity(candidate_vecs, ideal_vec).flatten()
-    # normalize to 0-1 (cosine sim on SVD space can go slightly negative)
-    sims = (sims - sims.min()) / (sims.max() - sims.min() + 1e-9)
     return sims
 
 
@@ -461,6 +508,7 @@ def compute_composite_base(semantic_score: float, must_have_score: float,
                             experience_fit: float, role_relevance: float,
                             location_score: float, notice_score: float,
                             nice_to_have_bonus: float,
+                            profile_quality_bonus: float,
                             must_have_families: list[str]) -> float:
     w = cfg.COMPOSITE_WEIGHTS
     logistics = 0.6 * location_score + 0.4 * notice_score
@@ -474,4 +522,4 @@ def compute_composite_base(semantic_score: float, must_have_score: float,
    
     if len(must_have_families) == len(cfg.MUST_HAVE_SKILL_FAMILIES):
         base += cfg.FULL_MUST_HAVE_COVERAGE_BONUS
-    return base + nice_to_have_bonus
+    return base + nice_to_have_bonus + profile_quality_bonus
