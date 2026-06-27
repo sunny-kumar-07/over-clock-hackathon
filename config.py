@@ -216,6 +216,31 @@ not only a services/consulting environment. Comfortable with both deep
 technical work on modern ML systems (embeddings, retrieval, ranking, LLMs,
 fine-tuning) and scrappy product engineering, shipping working systems
 quickly. Has opinions about hybrid vs dense retrieval, offline vs online
-evaluation, and when to fine-tune vs prompt an LLM, grounded in real systems
+evaluation, and when fine-tuning vs prompt an LLM, grounded in real systems
 they built.
 """.strip()
+
+# ---------------------------------------------------------------------------
+# 10. PROFILE QUALITY BONUSES (New Signals)
+# ---------------------------------------------------------------------------
+
+STARTUP_SIZES = ["1-10", "11-50", "51-200"]
+STARTUP_BONUS = 0.05
+
+CS_ML_DEGREE_MARKERS = ["computer science", "data science", "artificial intelligence", "machine learning", "mathematics", "statistics", "software engineering"]
+DEGREE_RELEVANCE_BONUS = 0.03
+TIER_1_BONUS = 0.04
+
+RELEVANT_CERT_MARKERS = ["aws machine learning", "gcp data engineer", "deeplearning.ai", "azure ai", "tensorflow", "kubernetes", "certified data scientist"]
+CERT_BONUS = 0.03
+
+# ---------------------------------------------------------------------------
+# PRE-COMPUTE: LOWERCASE ALL MARKER LISTS FOR SPEED
+# ---------------------------------------------------------------------------
+for k, v in list(globals().items()):
+    if isinstance(v, list) and all(isinstance(x, str) for x in v):
+        globals()[k] = [x.lower() for x in v]
+    elif isinstance(v, dict):
+        for dk, dv in v.items():
+            if isinstance(dv, list) and all(isinstance(x, str) for x in dv):
+                v[dk] = [x.lower() for x in dv]
