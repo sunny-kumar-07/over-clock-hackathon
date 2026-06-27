@@ -44,9 +44,16 @@ with st.expander("How this works (click to expand)", expanded=False):
 # ---------------------------------------------------------------------------
 
 st.subheader("1. Load candidates")
+st.info(
+    "**Demo mode:** Use the bundled 50-candidate sample to see the pipeline "
+    "run live in this sandbox. For the full 100K-candidate run, use the command: "
+    "`python rank.py --candidates candidates.jsonl --out output/submission.csv` "
+    "on your local machine — it completes in ~90 seconds."
+)
 source = st.radio(
     "Choose a data source",
     ["Use bundled sample_candidates.json (50 candidates)", "Upload your own .json / .jsonl"],
+    index=0,
     horizontal=False,
 )
 
@@ -64,6 +71,10 @@ if source.startswith("Use bundled"):
             "or switch to 'Upload your own' below."
         )
 else:
+    st.warning(
+        "⚠️ Streamlit upload limit is 200MB. "
+        "For large files (candidates.jsonl is 465MB), use the local command instead."
+    )
     uploaded = st.file_uploader("Upload a candidates file", type=["json", "jsonl"])
     if uploaded is not None:
         raw = uploaded.read().decode("utf-8")
@@ -116,4 +127,4 @@ st.divider()
 st.caption(
     "This sandbox uses the exact same scoring.py / config.py / rank.py as the full "
     "100K-candidate submission pipeline — nothing here is mocked or simplified."
-)
+)
