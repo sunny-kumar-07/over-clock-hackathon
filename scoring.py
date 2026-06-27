@@ -1,7 +1,7 @@
 
 
 from __future__ import annotations
-import re
+
 import numpy as np
 from datetime import datetime
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -229,6 +229,9 @@ ROLE_RELEVANT_TITLE_MARKERS = [
     "ml engineer", "machine learning", "ai engineer", "applied scientist",
     "data scientist", "research engineer", "recommendation", "search engineer",
     "ranking engineer", "nlp engineer", "ai research",
+    "junior ml", "junior ai", "junior nlp", "ai specialist", "ml specialist",
+    "senior software engineer (ml)", "software engineer (ml)", "engineer ii ml",
+    "engineer ii ai", "staff engineer ml", "principal ml", "principal ai",
 ]
 ROLE_IRRELEVANT_TITLE_MARKERS = [
     "marketing", "sales", "accountant", "hr ", "human resources", "customer support",
@@ -319,6 +322,25 @@ def compute_behavioral_multiplier(candidate: dict, as_of: datetime) -> float:
     saved_by = min(sig.get("saved_by_recruiters_30d", 0) or 0, cfg.SAVED_BY_RECRUITERS_CAP_30D) / cfg.SAVED_BY_RECRUITERS_CAP_30D
     social_proof = (search_appear + saved_by) / 2.0
 
+    pc_raw = sig.get("profile_completeness_score", 50) or 50
+    profile_completeness = min(pc_raw / cfg.PROFILE_COMPLETENESS_FULL_SCORE, 1.0)
+
+    rt_raw = sig.get("avg_response_time_hours", cfg.AVG_RESPONSE_SLOW_HOURS) or cfg.AVG_RESPONSE_SLOW_HOURS
+    if rt_raw <= cfg.AVG_RESPONSE_FAST_HOURS:
+        response_time_score = 1.0
+    elif rt_raw >= cfg.AVG_RESPONSE_SLOW_HOURS:
+        response_time_score = 0.0
+    else:
+        span = cfg.AVG_RESPONSE_SLOW_HOURS - cfg.AVG_RESPONSE_FAST_HOURS
+        response_time_score = 1.0 - (rt_raw - cfg.AVG_RESPONSE_FAST_HOURS) / span
+
+    verified_email = bool(sig.get("verified_email", False))
+    verified_phone = bool(sig.get("verified_phone", False))
+    verified_bonus = cfg.VERIFIED_CONTACT_BONUS if (verified_email and verified_phone) else 0.0
+
+    apps_30d = sig.get("applications_submitted_30d", 0) or 0
+    apps_bonus = cfg.APPLICATIONS_BONUS if cfg.APPLICATIONS_SWEET_SPOT_MIN <= apps_30d <= cfg.APPLICATIONS_SWEET_SPOT_MAX else 0.0
+
     raw = (
         w["recruiter_response_rate"] * response_rate
         + w["recency_score"] * recency
@@ -326,9 +348,11 @@ def compute_behavioral_multiplier(candidate: dict, as_of: datetime) -> float:
         + w["interview_completion_rate"] * interview_completion
         + w["offer_acceptance_rate"] * offer_acceptance
         + w["social_proof"] * social_proof
+        + w["profile_completeness"] * profile_completeness
+        + w["avg_response_time"] * response_time_score
     )
     lo, hi = cfg.BEHAVIORAL_MULTIPLIER_RANGE
-    return lo + raw * (hi - lo)
+    return max(lo, min(hi, lo + raw * (hi - lo) + verified_bonus + apps_bonus))
 
 
 # ---------------------------------------------------------------------------
@@ -450,4 +474,4 @@ def compute_composite_base(semantic_score: float, must_have_score: float,
    
     if len(must_have_families) == len(cfg.MUST_HAVE_SKILL_FAMILIES):
         base += cfg.FULL_MUST_HAVE_COVERAGE_BONUS
-    return min(1.0, base + nice_to_have_bonus)
+    return base + nice_to_have_bonus
