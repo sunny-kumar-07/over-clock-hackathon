@@ -24,11 +24,9 @@ team_members:
 # Code and reproducibility
 # ============================================================================
 github_repo: "https://github.com/sunny-kumar-07/over-clock-hackathon"
-sandbox_link: "https://over-clock-hackathon-biqdfrsmxerqsesy47mvmr.streamlit.app/"
+sandbox_link: ""
 
-reproduce_command: "python rank.py --candidates ./candidates.jsonl --out ./output/team_xxx.csv"
-# Verified: runs end-to-end in ~165 seconds on a CPU-only environment, 100K candidates,
-# no network access, no GPU. Output passes validate_submission.py.
+reproduce_command: "python rank.py --candidates ./candidates.jsonl --out ./output/submission.csv"
 
 # ============================================================================
 # Compute environment
@@ -38,7 +36,7 @@ compute:
   cpu_cores: 12                                                 
   ram_gb: 16                                                    
   python_version: "3.10.10"
-  os: "Windows 10 [Version 10.0.26200.8655]"
+  os: "Windows 11"
   uses_gpu_for_inference: false
   has_network_during_ranking: false
   pre_computation_required: false
