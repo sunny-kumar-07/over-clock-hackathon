@@ -24,7 +24,7 @@ team_members:
 # Code and reproducibility
 # ============================================================================
 github_repo: "https://github.com/sunny-kumar-07/over-clock-hackathon"
-sandbox_link: ""
+sandbox_link: "https://team-over-clock-hackathon.streamlit.app/"
 
 reproduce_command: "python rank.py --candidates ./candidates.jsonl --out ./output/submission.xlsx"
 
