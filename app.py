@@ -1,3 +1,4 @@
+import io
 import json
 import time
 from datetime import datetime
@@ -28,13 +29,14 @@ with st.expander("How this works (click to expand)", expanded=False):
 2. **Hard disqualifiers** — JD-explicit dealbreakers (consulting-only career,
    pure-research-only background, no recent hands-on code, title-chasing, etc.),
    each applying its own penalty multiplier.
-3. **Semantic fit** — TF-IDF + SVD similarity between each candidate's profile text
+3. **Semantic fit** — Fast TF-IDF + SVD similarity between each candidate's profile text
    and an "ideal candidate" reference description distilled from the JD. Catches
    candidates whose actual work matches even without buzzword-matching skills lists.
 4. **Skill / experience / role / location fit** — structured scoring against the
    JD's must-have/nice-to-have skill families, experience band, and location preferences.
-5. **Behavioral availability multiplier** — combines recruiter response rate, login
-   recency, open-to-work status, and interview completion rate. A perfect-on-paper
+5. **Profile Quality Bonus** — Rewards candidates from tier-1 institutions, CS/ML backgrounds, relevant certifications, and startup experience ("Founding Team" fit).
+6. **Behavioral availability multiplier** — combines recruiter response rate, login
+   recency, open-to-work status, interview completion rate, and market demand (profile views). A perfect-on-paper
    but unreachable candidate gets down-weighted, per the JD's explicit instruction.
         """
     )
@@ -47,8 +49,8 @@ st.subheader("1. Load candidates")
 st.info(
     "**Demo mode:** Use the bundled 50-candidate sample to see the pipeline "
     "run live in this sandbox. For the full 100K-candidate run, use the command: "
-    "`python rank.py --candidates candidates.jsonl --out output/submission.csv` "
-    "on your local machine — it completes in ~90 seconds."
+    "`python rank.py --candidates candidates.jsonl --out output/submission.xlsx` "
+    "on your local machine — it completes in under 20 seconds."
 )
 source = st.radio(
     "Choose a data source",
@@ -110,11 +112,14 @@ if candidates:
         st.subheader(f"3. Top {len(rows)} ranked shortlist")
         st.dataframe(df, use_container_width=True, hide_index=True)
 
+        xlsx_buffer = io.BytesIO()
+        df.to_excel(xlsx_buffer, index=False, engine="openpyxl", sheet_name="Ranked Candidates")
+        xlsx_buffer.seek(0)
         st.download_button(
-            "Download as CSV",
-            data=df.to_csv(index=False),
-            file_name="ranked_shortlist.csv",
-            mime="text/csv",
+            "Download as XLSX",
+            data=xlsx_buffer,
+            file_name="ranked_shortlist.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
        
