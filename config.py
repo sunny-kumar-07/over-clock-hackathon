@@ -12,9 +12,12 @@ IDEAL_EXPERIENCE_SWEET_SPOT = (6, 8)
 
 MUST_HAVE_SKILL_FAMILIES = {
     "embeddings_retrieval": [
-        "sentence-transformers", "sentence transformers", "openai embeddings",
-        "bge", "e5", "embeddings", "dense retrieval", "semantic search",
-        "retrieval", "RAG",
+        "sentence-transformers", "sentence transformers", "sentence-transformer",
+        "sentence-transformers", "all-minilm", "re-ranker", "reranker",
+        "cross-encoder", "bi-encoder", "dense vector", "approximate nearest neighbor",
+        "ann search", "vector search", "embedding model", "text embedding",
+        "openai embeddings", "bge", "e5", "embeddings", "dense retrieval",
+        "semantic search", "retrieval", "RAG",
     ],
     "vector_db_hybrid_search": [
         "pinecone", "weaviate", "qdrant", "milvus", "opensearch",
@@ -24,6 +27,9 @@ MUST_HAVE_SKILL_FAMILIES = {
     "eval_frameworks": [
         "ndcg", "mrr", "map", "a/b testing", "ab testing", "offline evaluation",
         "evaluation framework", "learning to rank", "ranking evaluation",
+        "evaluation", "online evaluation", "experiment", "experiment tracking",
+        "metric", "metrics", "click-through", "ctr", "precision@", "recall@",
+        "hit rate", "mlflow", "wandb", "ablation",
     ],
 }
 
@@ -148,33 +154,46 @@ NOTICE_PERIOD_SCORE_OVER_30_PER_EXTRA_30D = 0.85
 # ---------------------------------------------------------------------------
 
 BEHAVIORAL_WEIGHTS = {
-    "recruiter_response_rate": 0.30,
-    "recency_score": 0.25,          
+    "recruiter_response_rate": 0.20,
+    "recency_score": 0.20,
     "open_to_work_flag": 0.10,
     "interview_completion_rate": 0.15,
-    "offer_acceptance_rate": 0.10,  
-    "social_proof": 0.10,           
+    "offer_acceptance_rate": 0.10,
+    "social_proof": 0.10,
+    "profile_completeness": 0.08,
+    "avg_response_time": 0.07,
 }
-BEHAVIORAL_MULTIPLIER_RANGE = (0.30, 1.10)   
+BEHAVIORAL_MULTIPLIER_RANGE = (0.30, 1.10)
 
-RECENCY_FULL_SCORE_DAYS = 14     
-RECENCY_ZERO_SCORE_DAYS = 180    
+RECENCY_FULL_SCORE_DAYS = 14
+RECENCY_ZERO_SCORE_DAYS = 180
 
-OFFER_ACCEPTANCE_NEUTRAL_SCORE = 0.7   
+OFFER_ACCEPTANCE_NEUTRAL_SCORE = 0.7
 
 SEARCH_APPEARANCE_CAP_30D = 20
 SAVED_BY_RECRUITERS_CAP_30D = 10
+
+PROFILE_COMPLETENESS_FULL_SCORE = 80   # score at or above this = full credit
+
+AVG_RESPONSE_FAST_HOURS = 24    # <= 24hrs = full score
+AVG_RESPONSE_SLOW_HOURS = 168   # >= 168hrs (1 week) = zero score
+
+VERIFIED_CONTACT_BONUS = 0.03   # small additive bonus, both email AND phone verified
+
+APPLICATIONS_SWEET_SPOT_MIN = 5    # actively searching
+APPLICATIONS_SWEET_SPOT_MAX = 15   # not desperate/unfocused
+APPLICATIONS_BONUS = 0.02          # small additive bonus for being in sweet spot
 
 # ---------------------------------------------------------------------------
 # 8. FINAL COMPOSITE WEIGHTS
 # ---------------------------------------------------------------------------
 
 COMPOSITE_WEIGHTS = {
-    "semantic_fit":        0.35,  
+    "semantic_fit":        0.35,
     "must_have_coverage":  0.30,
-    "experience_fit":      0.10,
-    "role_relevance":      0.15,   
-    "location_logistics":  0.10,
+    "experience_fit":      0.12,
+    "role_relevance":      0.15,
+    "location_logistics":  0.08,
 }
 
 FULL_MUST_HAVE_COVERAGE_BONUS = 0.08
