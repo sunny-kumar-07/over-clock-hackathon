@@ -10,7 +10,7 @@
 [![CPU Only](https://img.shields.io/badge/Compute-CPU_Only-orange?style=for-the-badge&logo=cpu&logoColor=white)]()
 [![No Network](https://img.shields.io/badge/Network-Offline-red?style=for-the-badge&logo=offline&logoColor=white)]()
 
-Given **100,000 candidate profiles**, it produces a ranked **top-100 shortlist** — fully **offline, CPU-only, no GPU**, in under two minutes. 🚀
+Given **100,000 candidate profiles**, it produces a ranked **top-100 shortlist** — fully **offline, CPU-only, no GPU**, in under two minutes. 
 
 </div>
 
@@ -54,7 +54,7 @@ This dataset is built to test exactly this:
 
 ---
 
-## 🧠 Why This Architecture?
+## Why This Architecture?
 
 The single hardest constraint in this challenge is:
 **No network access. No GPU. 5-minute budget. 100,000 candidates.**
