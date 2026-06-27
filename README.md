@@ -1,166 +1,132 @@
 <div align="center">
-  
-#  Candidate Ranker
+  <h1>Candidate Ranker</h1>
+  <p>An AI-recruiter ranking engine for the <b>Senior AI Engineer — Founding Team</b> role.<br>Built for the <i>India Runs Data & AI Challenge</i>.</p>
 
-*An AI-recruiter ranking engine for the **Senior AI Engineer — Founding Team** role.*
-*Built for the **India Runs Data & AI Challenge**.*
-
-[![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![CPU Only](https://img.shields.io/badge/Compute-CPU_Only-orange?style=for-the-badge&logo=cpu&logoColor=white)]()
-[![No Network](https://img.shields.io/badge/Network-Offline-red?style=for-the-badge&logo=offline&logoColor=white)]()
-
-Given **100,000 candidate profiles**, it produces a ranked **top-100 shortlist** — fully **offline, CPU-only, no GPU**, in under two minutes. 
-
+  [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
+  [![CPU Only](https://img.shields.io/badge/Compute-CPU_Only-success.svg)](#)
+  [![Performance](https://img.shields.io/badge/Performance-100K_in_<20s-orange.svg)](#)
 </div>
+
+Given **100,000 candidate profiles**, it produces a ranked top-100 shortlist — fully **offline, CPU-only, no GPU**, in under **20 seconds**.
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
-Get up and running with a single command. No network access required, no GPU needed.
+Get the system up and running in minutes:
 
 ```bash
+# 1. Install dependencies
 pip install -r requirements.txt
-python rank.py --candidates ./candidates.jsonl --out ./output/team_xxx.csv
+
+# 2. Run the ranking pipeline
+python rank.py --candidates ./candidates.jsonl --out ./output/team_OverClock.xlsx
 ```
 
-> **Performance Note:** On a standard 6-core / 16GB laptop, this completes in **~90-115 seconds** for the full 100K-candidate dataset (well under the 5-minute budget limit). ⏱️
+> **⚡ Performance Note:** That's it — one command, no network access required, no GPU. On a 12-core Windows laptop, this completes in **under 20 seconds** for the full 100K-candidate dataset, utilizing a hyper-optimized byte-offset multiprocessing architecture with `orjson` for fast JSON parsing (well under the 5-minute budget).
 
-### 🧪 Validation & Demo
-
-To validate the output before submitting:
+**To validate the output before submitting:**
 ```bash
-python validate_submission.py output/team_xxx.csv
+python validate_submission.py output/team_OverClock.xlsx
 ```
 
-To explore the ranker interactively (small-sample sandbox demo):
+**To explore the ranker interactively (small-sample sandbox demo):**
 ```bash
-# Streamlit Sandbox App
-https://over-clock-hackathon-biqdfrsmxerqsesy47mvmr.streamlit.app/
+streamlit run app.py
 ```
 
 ---
 
 ## 🎯 The Problem
 
-Traditional keyword filters are broken. They **reject** good candidates whose resumes lack the "right" buzzwords, and **accept** bad candidates who simply stuff their skills list with trendy keywords. 
+Traditional keyword filters reject good candidates whose resumes don't use the "right" buzzwords, and accept bad candidates who stuff their skills list with trendy keywords regardless of what they actually did. 
 
 The JD for this role explicitly calls this out — it asks for **semantic understanding of actual experience**, not keyword matching, while also requiring the system to **catch keyword-stuffers, inconsistent/fake profiles, and unavailable candidates.**
 
-This dataset is built to test exactly this:
-- It contains [honeypot profiles](#-honeypot-consistency-check) with impossible internal inconsistencies.
-- It features a realistic mix of strong-but-buzzword-light candidates next to weak-but-keyword-stuffed ones.
+The dataset is built to test exactly this: it contains [honeypot profiles](#-honeypot--consistency-check) with impossible internal inconsistencies, and a realistic mix of strong-but-buzzword-light candidates next to weak-but-keyword-stuffed ones.
 
 ---
 
-## Why This Architecture?
+## 💡 Why This Architecture?
 
-The single hardest constraint in this challenge is:
-**No network access. No GPU. 5-minute budget. 100,000 candidates.**
-
-That rules out calling a hosted LLM per-candidate at ranking time. The obvious "just ask an AI" path isn't viable here, by design. The system had to be built as something a real recruiting platform could actually run in production: **fast, explainable, and cheap per query**.
+The single hardest constraint in this challenge is **no network access, no GPU, 5-minute budget, on 100,000 candidates.** That rules out calling a hosted LLM per-candidate at ranking time.
 
 We landed on a **hybrid rule-engine + local-semantic-similarity** approach:
 
-1. 📜 **Objective Rules:** Things that are rule-derivable from the JD's explicit instructions (e.g., "no pure-research-only backgrounds") are encoded as deterministic rules — fast, auditable, and directly traceable to the job description.
-2. 🔍 **Semantic Understanding:** Things that require understanding meaning (e.g., "this person's resume never says RAG but their work history is clearly a recommendation system") are handled by **TF-IDF + truncated SVD (LSA) semantic similarity** — a classical, fully local, deterministic technique that captures conceptual similarity without needing a downloaded neural model.
-3. 🤝 **Behavioral Signals:** Behavioral/availability signals are applied as a separate multiplicative layer on top, per the JD's explicit instruction that a perfect-on-paper but unreachable candidate should rank lower.
+1. 📏 **Objective Rules:** Things that are **rule-derivable** from the JD's explicit instructions (e.g., "no pure-research-only backgrounds") are encoded as deterministic rules — fast, auditable, and traceable to the JD.
+2. 🧠 **Semantic Understanding:** Things requiring meaning (e.g., "this person never says RAG but built a recommendation system") use a **stateless HashingVectorizer** for semantic similarity. It's a classical, fully local, deterministic technique that captures conceptual similarity and scales perfectly across all CPU cores.
+3. 🤝 **Behavioral Signals:** Applied as a separate multiplicative layer, per the JD's explicit instruction that a perfect-on-paper but unreachable candidate should rank lower.
 
-This means **every score the system produces can be explained in one sentence** — important both for the `reasoning` column requirement and for being able to defend the system in a live interview.
+Every score the system produces can be explained in one sentence — critical for the `reasoning` column requirement and for defending the system in a live interview.
 
 ---
 
-## 🏗️ Pipeline Architecture
+## ⚙️ Pipeline Architecture
 
 ```mermaid
-flowchart TD
-    A["candidates.jsonl (100K)"] --> B
-    
-    subgraph StageA ["Stage A: Semantic Fit"]
-        B["TF-IDF + SVD Similarity<br/>between candidate profile & JD ideal text"]
-    end
-    
-    B --> C
-    
-    subgraph StageB ["Stage B: Rule-based Scoring"]
-        C["Honeypot/consistency check<br/>Hard disqualifier rules<br/>Must-have skill coverage<br/>Experience / location / notice fit<br/>Behavioral availability multiplier"]
-    end
-    
-    C --> D
-    
-    subgraph FinalScore ["Final Score"]
-        D["Composite score =<br/>base_score * disqualifier_mult * behavioral_mult"]
-    end
-    
-    D --> E["Sort, take top 100,<br/>generate reasoning text,<br/>write CSV"]
+graph TD
+    A[candidates.jsonl 100K] --> B(Stage A: Semantic Fit\nStateless HashingVectorizer similarity)
+    B --> C(Stage B: Rule-based Scoring\nHoneypot checks, hard disqualifiers, skill coverage)
+    C --> D(Composite Score\nbase_score x disqualifier_mult x behavioral_mult)
+    D --> E(Sort, take top 100, generate reasoning, write XLSX)
 ```
 
-### 📁 File-by-File Breakdown
+### 📁 File-by-file Breakdown
 
 | File | Purpose |
 |---|---|
-| ⚙️ `config.py` | The JD's requirements encoded as structured data (must-haves, disqualifiers, composite scoring weights). **No logic lives here, only judgment calls**. |
-| 🧮 `scoring.py` | All scoring mechanics: honeypot detection, disqualifier checks, TF-IDF/SVD similarity, and reasoning text generation. Pure functions, no I/O. |
-| 🚀 `rank.py` | Orchestration — single entry point. Loads candidates, runs the pipeline, ranks, writes the submission CSV. |
-| 🎨 `app.py` | Streamlit sandbox demo — runs the exact same pipeline on a small sample interactively. |
-| ✅ `validate_submission.py` | Provided by organizers — validates output format. |
+| `config.py` | 🛠️ **The Brains.** The JD's requirements encoded as structured data — skill families, nice-to-haves, hard disqualifier rules, honeypot thresholds, location/experience preferences, and the "ideal candidate" reference text. **No logic lives here, only judgment calls**. |
+| `scoring.py` | 🧮 **The Engine.** All scoring mechanics: honeypot detection, disqualifier rule checks, semantic similarity (HashingVectorizer), behavioral multipliers, and reasoning generation. |
+| `rank.py` | 🚀 **The Orchestrator.** Single entry point. Loads candidates, runs the scoring pipeline, ranks, and writes the submission XLSX. |
+| `app.py` | 🖥️ **The UI.** Streamlit sandbox demo — runs the exact same pipeline on a small sample interactively. |
+| `validate_submission.py` | ✅ **The Validator.** Provided by organizers to validate output format. |
 
 ---
 
-## 🔬 Methodology in Detail
+## 🔍 Methodology in Detail
 
-### 1️⃣ JD Interpretation (`config.py`)
-We translated explicit JD statements into structured rules. For example, hard dealbreakers include:
-- 🏢 Entire career at consulting/services firms → *Penalty*
-- 🧪 Pure research background with no deployment evidence → *Heaviest penalty (JD: "will not move forward")*
-- 🦜 "AI experience" limited to recent LangChain wrappers → *Penalty*
-- 👔 Senior title with no hands-on coding in 18+ months → *Penalty*
+### 1. JD Interpretation (`config.py`)
+We translated explicit JD statements into structured rules. For example:
+- *Entire career at consulting/services firms* 📉 **Penalty**
+- *Pure research background with no production evidence* 🚫 **Heavy Penalty** (JD: "will not move forward")
+- *Job-hopping pattern* 📉 **Penalty**
 
-Each rule applies its own **multiplicative penalty** (except honeypots, which force a near-zero score). 
+### 2. Semantic Fit
+We concatenate each candidate's profile text and compare it against an "ideal candidate" paragraph using a **highly-optimized HashingVectorizer** and cosine similarity. It runs across all CPU cores simultaneously via a **byte-offset multiprocessing** architecture, bypassing the Python GIL.
 
-### 2️⃣ Semantic Fit (`scoring.compute_semantic_scores`)
-We compare each candidate's concatenated profile text against an "ideal candidate" paragraph using **TF-IDF vectorization (unigrams + bigrams) followed by truncated SVD (LSA)** and cosine similarity. 
-- Computed **once, in batch, across all 100K candidates**.
-- This lets a candidate score well even if their resume lacks exact keywords like "RAG", while correctly demoting keyword-stuffers.
+### 3. Honeypot & Consistency Check
+We built detection rules for internally-impossible profiles:
+- 🚨 Expert proficiency claimed with near-zero `duration_months`.
+- 🚨 Career-history total duration far exceeding stated `years_of_experience`.
+- 🚨 Claimed proficiency level far above the candidate's actual tested `skill_assessment_scores`.
 
-### 3️⃣ Honeypot / Consistency Check
-We built detection rules based on real data anomalies:
-1. 📈 **Expert proficiency claimed** with near-zero `duration_months`.
-2. ⏳ **Career history total duration** far exceeding stated `years_of_experience`.
-3. 🥇 **Claimed proficiency level** far above the candidate's tested `skill_assessment_scores`.
+*(In testing, this kept the final top-100 shortlist at **0 honeypots**).*
 
-> **Result:** Any candidate matching these is pushed to a near-zero score, keeping the final top-100 shortlist at **0 honeypots**.
+### 4. Behavioral Availability Multiplier
+Combines `recruiter_response_rate`, recency of `last_active_date`, `open_to_work_flag`, and `interview_completion_rate` into a single multiplier (0.30x to 1.10x).
 
-### 4️⃣ Behavioral Availability Multiplier
-Combines `recruiter_response_rate`, `last_active_date`, `open_to_work_flag`, and `interview_completion_rate` into a single multiplier (0.30x to 1.10x), ensuring reachable candidates are prioritized.
-
-### 5️⃣ Reasoning Generation
-Each top-100 candidate gets a dynamically generated reasoning sentence built from their *actual* deciding factors (semantic score, skills matched, availability).
+### 5. Reasoning Generation
+Each top-100 candidate gets a reasoning sentence built from their *actual* deciding factors (semantic score, skills matched, role relevance), rather than a fixed template.
 
 ---
 
-## 📊 Results (Full 100K Run)
+## 📊 Results (Full 100K-candidate Run)
 
-- ⏱ **Runtime:** ~93-115 seconds end-to-end (budget: 5 minutes)
-- 🪤 **Honeypots in final top-100:** 0 / 100
-- ✅ **Output:** Passes `validate_submission.py` flawlessly
-- 🏆 **Quality:** Top-ranked candidates are consistently real ML/AI/Search engineers at credible product companies.
+- ⏱️ **Runtime:** `< 20 seconds` end-to-end *(Budget: 5 minutes)*
+- 🍯 **Honeypots in final top-100:** `0 / 100`
+- ✅ **Validation:** Passes `validate_submission.py` with no errors
+- 🌟 **Quality:** Top-ranked candidates are consistently real ML/AI/Search/Recommendation engineers at credible product companies.
 
 ---
 
 ## ⚖️ Design Tradeoffs & Limitations
 
-- **TF-IDF/SVD vs. Neural Embeddings:** We chose classical TF-IDF+SVD over a sentence-transformer model to guarantee **zero network dependency** at ranking time. This trades some semantic nuance for total reproducibility.
-- **Multiplicative Penalties:** Disqualifier penalties are multiplicative, not hard rejects (except honeypots), based on the JD's softer "probably won't move forward" language.
-- **Honeypot Detection:** We trade precision for recall — we'd rather over-flag borderline profiles than let a true honeypot slip into the top 100.
+- **HashingVectorizer vs. Neural Embeddings:** We chose a stateless classical approach over a downloaded sentence-transformer model to guarantee **zero network dependency** at ranking time and allow **perfect multi-core scaling**.
+- **Multiplicative Penalties:** Disqualifiers apply a penalty multiplier rather than a hard reject (except honeypots), aligning with the JD's softer "probably won't move forward" language.
+- **Honeypot Precision vs. Recall:** We purposely over-flag borderline profiles to ensure no true honeypot slips into the top 100.
 
 ---
 
 ## 👥 Team
 
 Built by a 3-person team. See `submission_metadata.yaml` for contact and compute details, and an honest declaration of how AI tools were used during development.
-
-<div align="center">
-  <i>Made with 💡 for the India Runs Data & AI Challenge</i>
-</div>
